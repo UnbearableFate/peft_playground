@@ -1,0 +1,59 @@
+model:
+  name_or_path: Qwen/Qwen3-1.7B
+  trust_remote_code: true
+  torch_dtype: bfloat16
+  tokenizer_name: Qwen/Qwen3-1.7B
+
+dataset:
+  name: glue
+  subset: mrpc
+  train_split: train
+  eval_split: validation
+  text_fields: [sentence1, sentence2]
+  label_field: label
+  max_length: 256
+
+adapter:
+  method: lora
+  target_modules: []
+  rank: 8
+  alpha: 16.0
+  dropout: 0.05
+  init_scale: 1.0
+  train_bias: false
+
+trainer:
+  output_dir: outputs/qwen_mrpc_lora
+  num_train_epochs: 3.0
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 32
+  warmup_ratio: 0.03
+  learning_rate: 1.5e-4
+  weight_decay: 0.01
+  eval_strategy: steps
+  eval_steps: 200
+  save_strategy: steps
+  save_steps: 200
+  logging_steps: 50
+  max_steps: null
+  fp16: false
+  bf16: true
+  report_to: [none]
+  extra:
+    do_train: true
+    do_eval: true
+    load_best_model_at_end: true
+    metric_for_best_model: accuracy
+    greater_is_better: true
+
+runtime:
+  seed: 7
+  gradient_checkpointing: true
+  torch_compile: false
+
+wandb:
+  enabled: true
+  project: peft-playground
+  name: qwen3-mrpc-lora
+  tags: [glue, lora, qwen3]
