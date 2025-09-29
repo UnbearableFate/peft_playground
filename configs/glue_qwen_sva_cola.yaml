@@ -1,0 +1,62 @@
+model:
+  name_or_path: Qwen/Qwen3-1.7B
+  trust_remote_code: true
+  torch_dtype: bfloat16
+  tokenizer_name: Qwen/Qwen3-1.7B
+
+dataset:
+  name: glue
+  subset: cola
+  train_split: train
+  eval_split: validation
+  text_fields: [sentence]
+  label_field: label
+  max_length: 128
+
+adapter:
+  method: sva
+  target_modules: []
+  rank: 16
+  alpha: 32.0
+  dropout: 0.0
+  init_scale: 1.0
+  train_bias: false
+  extra:
+    mode: multiplicative
+    init_std: 5.0e-3
+
+trainer:
+  output_dir: outputs/qwen_cola_sva
+  num_train_epochs: 8.0
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 8
+  gradient_accumulation_steps: 16
+  warmup_ratio: 0.05
+  learning_rate: 9.0e-5
+  weight_decay: 0.01
+  eval_strategy: steps
+  eval_steps: 50
+  save_strategy: steps
+  save_steps: 50
+  logging_steps: 25
+  max_steps: null
+  fp16: false
+  bf16: true
+  report_to: [none]
+  extra:
+    do_train: true
+    do_eval: true
+    load_best_model_at_end: true
+    metric_for_best_model: matthews_correlation
+    greater_is_better: true
+
+runtime:
+  seed: 17
+  gradient_checkpointing: true
+  torch_compile: false
+
+wandb:
+  enabled: true
+  project: peft-playground
+  name: qwen3-cola-sva
+  tags: [glue, cola, sva, qwen3]

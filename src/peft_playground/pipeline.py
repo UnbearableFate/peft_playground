@@ -19,13 +19,22 @@ from transformers import (
     set_seed,
 )
 
-from .adapters import AdapterConfig, SubspaceStrategy, attach_adapters, flora_factory, lora_factory
+from .adapters import (
+    AdapterConfig,
+    SubspaceStrategy,
+    attach_adapters,
+    flora_factory,
+    lora_factory,
+    sva_factory,
+)
 from .config import TrainingConfig
 
 
 METHOD_FACTORY = {
     "lora": lora_factory,
     "flora": flora_factory,
+    "sva": sva_factory,
+    "singular_value_adjustment": sva_factory,
 }
 
 
@@ -148,7 +157,10 @@ class TrainingMonitorCallback(TrainerCallback):
 
 def _build_adapter_config(cfg: TrainingConfig) -> AdapterConfig:
     method = cfg.adapter.method.lower()
-    strategy = SubspaceStrategy.EXTENSION
+    if method in {"sva", "singular_value_adjustment"}:
+        strategy = SubspaceStrategy.RECONSTRUCTION
+    else:
+        strategy = SubspaceStrategy.EXTENSION
     return AdapterConfig(
         target_modules=cfg.adapter.target_modules,
         rank=cfg.adapter.rank,
@@ -366,4 +378,3 @@ def prepare_training_components(cfg: TrainingConfig):
     }
 
     return components
-
