@@ -12,7 +12,7 @@
 
 **Workflow**
 - Install deps: `pip install -e .` (requires torch + transformers stack compatible with Qwen models).
-- Pick a config from `configs/` or create a new one; critical fields include `adapter.method` (`lora`, `flora`, `sva`) and `adapter.target_modules` (leave empty to touch every linear layer or list suffixes such as `q_proj`, `k_proj`, `v_proj`, `o_proj`).
+- Pick a config from `configs/` or create a new one; critical fields include `adapter.method` (`lora`, `flora`, `dora`, `sva`) and `adapter.target_modules` (leave empty to touch every linear layer or list suffixes such as `q_proj`, `k_proj`, `v_proj`, `o_proj`).
 - Launch fine-tuning: `python -m peft_playground.cli --config configs/glue_qwen_lora.yaml`.
 - Use `--dry-run` to validate the setup without training; outputs trainer arguments.
 - Enable Weights & Biases logging by setting `wandb.enabled: true` in your YAML; gradients, accuracy, and GPU memory stats stream automatically.
@@ -29,7 +29,7 @@
 **Config Reference**
 - `model`: `name_or_path` (required Hugging Face id or local path); optional `revision`, `torch_dtype` (`float32`/`float16`/`bfloat16`), `trust_remote_code`, `device_map`, `tokenizer_name`.
 - `dataset`: `name` (required dataset id) plus optional `subset` (e.g. `mrpc`, `cola`), `train_split`, `eval_split`, `text_fields` (one or two columns), `label_field`, `max_length`.
-- `adapter`: choose `method` (`lora`, `flora`, `sva`), list `target_modules` suffixes (empty -> all), set `rank`, `alpha`, optional `dropout`, `init_scale`, `train_bias`, `extra` metadata.
+- `adapter`: choose `method` (`lora`, `flora`, `dora`, `sva`), list `target_modules` suffixes (empty -> all), set `rank`, `alpha`, optional `dropout`, `init_scale`, `train_bias`, `extra` metadata.
 - `train`: centralises training knobs (`output_dir`, `num_epochs`, `per_device_batch_size`, `gradient_accumulation_steps`, `warmup_ratio`, `learning_rate`, `weight_decay`, `max_steps`, `logging_steps`, optional `precision.fp16/bf16`, `dataloader_num_workers`).
 - `evaluation`: evaluation/checkpoint policy (`per_device_batch_size`, `strategy`, `steps`, `save_strategy`, `save_steps`, `load_best_model_at_end`, `metric_for_best_model`, `greater_is_better`, `do_train`, `do_eval`).
 - `trainer`: `output_dir`, core hyperparams (`num_train_epochs`, per-device batch sizes, `gradient_accumulation_steps`, `warmup_ratio`, `learning_rate`, `weight_decay`), scheduling knobs (`evaluation_strategy`/`eval_strategy`, `eval_steps`, `save_strategy`, `save_steps`, `logging_steps`, `max_steps`), precision flags (`fp16`, `bf16`), reporting (`report_to`), plus `extra` passthrough to `TrainingArguments`; null values are dropped before instantiation.

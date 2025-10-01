@@ -35,6 +35,7 @@ from .adapters import (
     AdapterConfig,
     SubspaceStrategy,
     attach_adapters,
+    dora_factory,
     flora_factory,
     lora_factory,
     sva_factory,
@@ -48,6 +49,7 @@ METHOD_FACTORY = {
     "flora": flora_factory,
     "sva": sva_factory,
     "singular_value_adjustment": sva_factory,
+    "dora": dora_factory,
     "mam": mam_factory,
 }
 
