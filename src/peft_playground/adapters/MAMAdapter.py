@@ -75,48 +75,6 @@ class FLoRAAdapter(LoRAAdapter):
         residual = self.up(hidden) * self.scaling
         return residual
 
-class MAMAdapter(AdapterModule):
-    """Classic low-rank adapter that performs subspace extension."""
-
-    def __init__(self, linear_module: nn.Linear, config: AdapterConfig) -> None:
-        if config.rank <= 0:
-            raise ValueError("LoRAAdapter requires rank > 0")
-        config = AdapterConfig(
-            target_modules=config.target_modules,
-            rank=config.rank,
-            alpha=config.alpha,
-            dropout=config.dropout,
-            init_scale=config.init_scale,
-            strategy=SubspaceStrategy.EXTENSION,
-            train_bias=config.train_bias,
-            name=config.name or "lora",
-            extra=dict(config.extra),
-        )
-        super().__init__(linear_module, config)
-        self.down = nn.Linear(self.in_features, config.rank, bias=False)
-        self.up = nn.Linear(config.rank, self.out_features, bias=False)
-        self.reset_parameters()
-        self._to_dtype_and_device(linear_module.weight)
-        self.gelu = nn.GELU()
-
-    def reset_parameters(self) -> None:
-        nn.init.kaiming_uniform_(self.down.weight, a=math.sqrt(5))
-        nn.init.zeros_(self.up.weight)
-        if self.config.init_scale != 1.0:
-            self.up.weight.data.mul_(self.config.init_scale)
-
-    def _to_dtype_and_device(self, reference: torch.Tensor) -> None:
-        target_dtype = reference.dtype
-        target_device = reference.device
-        self.down.to(device=target_device, dtype=target_dtype)
-        self.up.to(device=target_device, dtype=target_dtype)
-        # Dropout layer holds no parameters, but ensure it lives on the right device
-        if self.dropout_layer is not None:
-            self.dropout_layer.to(device=target_device)
-
-    def compute_delta(self, x: torch.Tensor) -> torch.Tensor:
-        residual = self.up(self.gelu(self.down(x))) * self.scaling
-        return residual
 
 def lora_factory(linear: nn.Linear, config: AdapterConfig) -> AdapterModule:
     return LoRAAdapter(linear, config)
@@ -124,6 +82,3 @@ def lora_factory(linear: nn.Linear, config: AdapterConfig) -> AdapterModule:
 
 def flora_factory(linear: nn.Linear, config: AdapterConfig) -> AdapterModule:
     return FLoRAAdapter(linear, config)
-
-def mam_factory(linear: nn.Linear, config: AdapterConfig) -> AdapterModule:
-    return MAMAdapter(linear, config)

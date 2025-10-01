@@ -38,7 +38,7 @@ class SingularValueAdjustmentAdapter(AdapterModule):
         if desired_rank == 0:
             raise ValueError("SVA rank is zero after clamping; increase rank or layer size")
 
-        # Compute SVD on CPU in float32 for numerical stability.
+        # Compute SVD on GPU in float32 for numerical stability.
         with torch.no_grad():
             device = linear_module.weight.device
             weight = linear_module.weight.detach().to(device=device, dtype=torch.float32)

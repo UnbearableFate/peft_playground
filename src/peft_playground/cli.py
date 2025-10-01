@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import TrainingConfig
-from .pipeline import prepare_training_components
+from .pipeline import prepare_training_components, run_accelerated_training, run_ddp_training
 
 
 def _parse_args() -> argparse.Namespace:
@@ -22,6 +22,12 @@ def _parse_args() -> argparse.Namespace:
         "--evaluate-only",
         action="store_true",
         help="Skip training and run evaluation only",
+    )
+    parser.add_argument(
+        "--backend",
+        choices=["trainer", "accelerate", "ddp"],
+        default="trainer",
+        help="Select Hugging Face Trainer, Accelerate, or torch.distributed backend",
     )
     return parser.parse_args()
 
@@ -46,21 +52,44 @@ def _maybe_run_training(trainer, evaluate_only: bool) -> dict[str, Any]:
 def main() -> None:
     args = _parse_args()
     cfg = TrainingConfig.load(args.config)
-    components = prepare_training_components(cfg)
-    trainer = components["trainer"]
-    wandb_run = components.get("wandb_run")
+    wandb_run = None
 
     try:
-        if args.dry_run:
-            print("Dry run: trainer prepared with the following arguments:")
-            print(json.dumps(trainer.args.to_dict(), indent=2, sort_keys=True))
-            return
+        if args.backend == "trainer":
+            components = prepare_training_components(cfg)
+            trainer = components["trainer"]
+            wandb_run = components.get("wandb_run")
 
-        metrics = _maybe_run_training(trainer, args.evaluate_only)
-        if metrics:
-            summary_path = Path(trainer.args.output_dir) / "run_summary.json"
-            summary_path.write_text(json.dumps(metrics, indent=2, sort_keys=True))
-            print(f"Metrics written to {summary_path}")
+            if args.dry_run:
+                print("Dry run: trainer prepared with the following arguments:")
+                print(json.dumps(trainer.args.to_dict(), indent=2, sort_keys=True))
+                return
+
+            metrics = _maybe_run_training(trainer, args.evaluate_only)
+            if metrics:
+                summary_path = Path(trainer.args.output_dir) / "run_summary.json"
+                summary_path.write_text(json.dumps(metrics, indent=2, sort_keys=True))
+                print(f"Metrics written to {summary_path}")
+        elif args.backend == "accelerate":
+            metrics, wandb_run = run_accelerated_training(
+                cfg,
+                evaluate_only=args.evaluate_only,
+                dry_run=args.dry_run,
+            )
+            if metrics:
+                summary_path = Path(cfg.trainer.output_dir) / "run_summary.json"
+                summary_path.write_text(json.dumps(metrics, indent=2, sort_keys=True))
+                print(f"Metrics written to {summary_path}")
+        else:
+            metrics, wandb_run = run_ddp_training(
+                cfg,
+                evaluate_only=args.evaluate_only,
+                dry_run=args.dry_run,
+            )
+            if metrics:
+                summary_path = Path(cfg.trainer.output_dir) / "run_summary.json"
+                summary_path.write_text(json.dumps(metrics, indent=2, sort_keys=True))
+                print(f"Metrics written to {summary_path}")
     finally:
         if wandb_run is not None:
             wandb_run.finish()
@@ -68,4 +97,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

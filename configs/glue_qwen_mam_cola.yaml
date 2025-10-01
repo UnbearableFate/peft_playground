@@ -5,41 +5,48 @@ model:
   tokenizer_name: Qwen/Qwen3-1.7B
 dataset:
   name: glue
-  subset: mrpc
+  subset: cola
   train_split: train
   eval_split: validation
   text_fields:
-  - sentence1
-  - sentence2
+  - sentence
   label_field: label
-  max_length: 256
+  max_length: 128
 adapter:
-  method: lora
+  method: mam
   target_modules: []
   rank: 8
-  alpha: 16.0
+  alpha: 8.0
   dropout: 0.05
   init_scale: 1.0
   train_bias: false
 runtime:
-  seed: 7
+  seed: 11
   gradient_checkpointing: true
   torch_compile: false
 wandb:
   enabled: true
   project: peft-playground
-  name: qwen3-mrpc-lora
+  name: qwen3-cola-lora
   tags:
   - glue
+  - cola
   - lora
   - qwen3
+ddp:
+  enabled: true
+  backend: nccl
+  gradient_accumulation_steps: 1
+  find_unused_parameters: false
+  broadcast_buffers: true
+  static_graph: false
 train:
-  output_dir: outputs/qwen_mrpc_lora
-  num_epochs: 3.0
-  per_device_batch_size: 2
-  gradient_accumulation_steps: 32
-  warmup_ratio: 0.03
-  learning_rate: 0.00015
+  output_dir: outputs/qwen_cola_mam
+  num_epochs: 50
+  per_device_batch_size: 128
+  gradient_accumulation_steps: 1
+  warmup_ratio: 0.05
+  learning_rate: 0.00012
   weight_decay: 0.01
   max_steps: null
   precision:
@@ -47,13 +54,13 @@ train:
     bf16: true
   logging_steps: 50
 evaluation:
-  per_device_batch_size: 2
+  per_device_batch_size: 128
   strategy: steps
-  steps: 200
+  steps: 50
   save_strategy: steps
-  save_steps: 200
+  save_steps: 50
   load_best_model_at_end: true
-  metric_for_best_model: accuracy
+  metric_for_best_model: matthews_correlation
   greater_is_better: true
   do_train: true
   do_eval: true

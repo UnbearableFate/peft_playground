@@ -5,7 +5,7 @@ from .base import (
     SubspaceStrategy,
     attach_adapters,
 )
-from .lora import FLoRAAdapter, LoRAAdapter, flora_factory, lora_factory
+from .lora import FLoRAAdapter, LoRAAdapter, flora_factory, lora_factory, mam_factory
 from .sva import SingularValueAdjustmentAdapter, sva_factory
 
 __all__ = [
@@ -14,9 +14,11 @@ __all__ = [
     "SubspaceStrategy",
     "LoRAAdapter",
     "FLoRAAdapter",
+    "MAMAdapter",
     "SingularValueAdjustmentAdapter",
     "lora_factory",
     "flora_factory",
     "sva_factory",
     "attach_adapters",
+    "mam_factory",
 ]

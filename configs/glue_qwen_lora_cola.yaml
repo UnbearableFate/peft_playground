@@ -3,16 +3,15 @@ model:
   trust_remote_code: true
   torch_dtype: bfloat16
   tokenizer_name: Qwen/Qwen3-1.7B
-
 dataset:
   name: glue
   subset: cola
   train_split: train
   eval_split: validation
-  text_fields: [sentence]
+  text_fields:
+  - sentence
   label_field: label
   max_length: 128
-
 adapter:
   method: lora
   target_modules: []
@@ -21,39 +20,47 @@ adapter:
   dropout: 0.05
   init_scale: 1.0
   train_bias: false
-
-trainer:
-  output_dir: outputs/qwen_cola_lora
-  num_train_epochs: 10.0
-  per_device_train_batch_size: 4
-  per_device_eval_batch_size: 8
-  gradient_accumulation_steps: 16
-  warmup_ratio: 0.05
-  learning_rate: 1.2e-4
-  weight_decay: 0.01
-  eval_strategy: steps
-  eval_steps: 50
-  save_strategy: steps
-  save_steps: 50
-  logging_steps: 25
-  max_steps: null
-  fp16: false
-  bf16: true
-  report_to: [none]
-  extra:
-    do_train: true
-    do_eval: true
-    load_best_model_at_end: true
-    metric_for_best_model: matthews_correlation
-    greater_is_better: true
-
 runtime:
   seed: 11
   gradient_checkpointing: true
   torch_compile: false
-
 wandb:
   enabled: true
   project: peft-playground
   name: qwen3-cola-lora
-  tags: [glue, cola, lora, qwen3]
+  tags:
+  - glue
+  - cola
+  - lora
+  - qwen3
+ddp:
+  enabled: true
+  backend: nccl
+  gradient_accumulation_steps: 1
+  find_unused_parameters: false
+  broadcast_buffers: true
+  static_graph: false
+train:
+  output_dir: outputs/qwen_cola_lora
+  num_epochs: 50
+  per_device_batch_size: 128
+  gradient_accumulation_steps: 1
+  warmup_ratio: 0.05
+  learning_rate: 0.00012
+  weight_decay: 0.01
+  max_steps: null
+  precision:
+    fp16: false
+    bf16: true
+  logging_steps: 50
+evaluation:
+  per_device_batch_size: 128
+  strategy: steps
+  steps: 50
+  save_strategy: steps
+  save_steps: 50
+  load_best_model_at_end: true
+  metric_for_best_model: matthews_correlation
+  greater_is_better: true
+  do_train: true
+  do_eval: true
