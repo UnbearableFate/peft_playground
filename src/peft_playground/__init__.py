@@ -1,11 +1,15 @@
 """PEFT Playground: modular subspace tuning adapters."""
 
 from .config import TrainingConfig
-from .pipeline import prepare_training_components, run_accelerated_training, run_ddp_training
+from .training.preparation import build_training_state
+from .training.runners.trainer_runner import run_trainer
+from .training.runners.accelerate_runner import run_accelerated_training
+from .training.runners.ddp_runner import run_ddp_training
 
 __all__ = [
     "TrainingConfig",
-    "prepare_training_components",
+    "build_training_state",
+    "run_trainer",
     "run_accelerated_training",
     "run_ddp_training",
 ]

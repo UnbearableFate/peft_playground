@@ -1,7 +1,7 @@
 """Adapter base classes for subspace reconstruction and extension."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum, auto
 from typing import Iterable, List, Sequence, Tuple
 
@@ -30,6 +30,25 @@ class AdapterConfig:
     train_bias: bool = False
     name: str | None = None
     extra: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        """Serialize config to a JSON-friendly dict."""
+        data = asdict(self)
+        data["target_modules"] = list(self.target_modules)
+        data["strategy"] = self.strategy.name
+        data["extra"] = dict(self.extra)
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AdapterConfig:
+        """Deserialize config from dict produced by `to_dict`."""
+        payload = dict(data)
+        target_modules = payload.get("target_modules", ())
+        payload["target_modules"] = tuple(target_modules)
+        strategy = payload.get("strategy", SubspaceStrategy.EXTENSION.name)
+        if not isinstance(strategy, SubspaceStrategy):
+            payload["strategy"] = SubspaceStrategy[strategy]
+        return cls(**payload)
 
 
 class AdapterModule(nn.Module):
@@ -134,4 +153,3 @@ def attach_adapters(
             f"Targets: {adapter_config.target_modules}"
         )
     return wrapped_modules
-

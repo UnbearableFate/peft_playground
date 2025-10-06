@@ -27,12 +27,6 @@ runtime:
 wandb:
   enabled: true
   project: peft-playground
-  name: qwen3-cola-lora
-  tags:
-  - glue
-  - cola
-  - lora
-  - qwen3
 ddp:
   enabled: true
   backend: nccl
@@ -41,8 +35,8 @@ ddp:
   broadcast_buffers: true
   static_graph: false
 train:
-  output_dir: outputs/qwen_cola_lora
-  num_epochs: 50
+  output_dir: outputs
+  num_epochs: 3
   per_device_batch_size: 128
   gradient_accumulation_steps: 1
   warmup_ratio: 0.05
@@ -52,13 +46,13 @@ train:
   precision:
     fp16: false
     bf16: true
-  logging_steps: 50
+  logging_steps: 5
 evaluation:
   per_device_batch_size: 128
   strategy: steps
-  steps: 50
+  steps: 5
   save_strategy: steps
-  save_steps: 50
+  save_steps: 10
   load_best_model_at_end: true
   metric_for_best_model: matthews_correlation
   greater_is_better: true

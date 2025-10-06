@@ -48,30 +48,6 @@ class AdapterSettings:
 
 
 @dataclass
-class TrainerConfig:
-    """Arguments forwarded to Hugging Face TrainingArguments."""
-
-    output_dir: str  # Where checkpoints, logs, and summaries are written
-    num_train_epochs: float = 3.0  # Epoch budget when max_steps is unset
-    per_device_train_batch_size: int = 8  # Micro-batch size for training
-    per_device_eval_batch_size: int = 8  # Micro-batch size for evaluation
-    gradient_accumulation_steps: int = 1  # Steps to accumulate gradients before optimizer step
-    warmup_ratio: float = 0.0  # Fraction of steps used for LR warmup
-    learning_rate: float = 5e-5  # Peak learning rate
-    weight_decay: float = 0.0  # L2 regularisation strength
-    eval_strategy: str = "steps"  # Evaluation cadence keyword
-    eval_steps: Optional[int] = None  # Step interval for eval when using step strategy
-    save_strategy: str = "steps"  # Checkpoint cadence keyword
-    save_steps: Optional[int] = None  # Step interval for checkpointing under step strategy
-    logging_steps: int = 50  # Logging frequency for Trainer callbacks/integrations
-    max_steps: Optional[int] = None  # Hard limit on optimizer steps (overrides epochs)
-    fp16: bool = False  # Enable fp16 mixed precision
-    bf16: bool = False  # Enable bf16 mixed precision
-    report_to: Sequence[str] = field(default_factory=lambda: ["none"])  # Reporting integrations (e.g. wandb)
-    extra: Dict[str, Any] = field(default_factory=dict)  # Additional kwargs forwarded to TrainingArguments
-
-
-@dataclass
 class RuntimeConfig:
     """Runtime toggles applied outside the Trainer arguments."""
 
@@ -128,12 +104,12 @@ class PrecisionConfig:
 
 
 @dataclass
-class TrainSettings:
-    """High-level training configuration for readability."""
+class TrainConfig:
+    """Training loop hyper-parameters and runtime hints."""
 
     output_dir: str
-    num_epochs: float
-    per_device_batch_size: int
+    num_epochs: float = 3.0
+    per_device_batch_size: int = 128
     gradient_accumulation_steps: int = 1
     warmup_ratio: float = 0.0
     learning_rate: float = 5e-5
@@ -142,13 +118,34 @@ class TrainSettings:
     logging_steps: int = 50
     precision: PrecisionConfig = field(default_factory=PrecisionConfig)
     dataloader_num_workers: int = 0
+    lr_scheduler_type: str = "linear"
+    resume_from_checkpoint: Optional[str] = None
+    report_to: Sequence[str] = field(default_factory=lambda: ["none"])
+    run_name: Optional[str] = None
+    push_to_hub: bool = False
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if isinstance(self.precision, Mapping):
+            self.precision = PrecisionConfig(**self.precision)
+        report = self.report_to
+        if report is None:
+            self.report_to = []
+        elif isinstance(report, str):
+            self.report_to = [report]
+        else:
+            self.report_to = list(report)
+        if self.extra is None:
+            self.extra = {}
+        else:
+            self.extra = dict(self.extra)
 
 
 @dataclass
-class EvaluationSettings:
-    """Evaluation/checkpoint behavior."""
+class EvaluationConfig:
+    """Evaluation and checkpointing behaviour."""
 
-    per_device_batch_size: int
+    per_device_batch_size: int = 8
     strategy: str = "steps"
     steps: Optional[int] = None
     save_strategy: str = "steps"
@@ -158,6 +155,14 @@ class EvaluationSettings:
     greater_is_better: bool = True
     do_train: bool = True
     do_eval: bool = True
+    save_total_limit: Optional[int] = None
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.extra is None:
+            self.extra = {}
+        else:
+            self.extra = dict(self.extra)
 
 
 @dataclass
@@ -167,143 +172,62 @@ class TrainingConfig:
     model: ModelConfig
     dataset: DatasetConfig
     adapter: AdapterSettings
-    trainer: TrainerConfig
+    train: TrainConfig
+    evaluation: EvaluationConfig
     runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
     wandb: WandbConfig = field(default_factory=WandbConfig)
     accelerate: AccelerateConfig = field(default_factory=AccelerateConfig)
     ddp: DDPConfig = field(default_factory=DDPConfig)
-    train: Optional[TrainSettings] = None
-    evaluation: Optional[EvaluationSettings] = None
 
     @staticmethod
-    def load(path: str | Path) -> "TrainingConfig":
+    def load(path: str | Path,timestamp: str= None) -> "TrainingConfig":
         data = yaml.safe_load(Path(path).read_text())
-        return TrainingConfig.from_dict(data)
+        return TrainingConfig.from_dict(data,timestamp)
 
     @staticmethod
-    def from_dict(config: Mapping[str, Any]) -> "TrainingConfig":
+    def from_dict(config: Mapping[str, Any], timestamp: str | None) -> "TrainingConfig":
         model = ModelConfig(**config["model"])
         dataset = DatasetConfig(**config["dataset"])
         adapter = AdapterSettings(**config["adapter"])
-        trainer_payload = config.get("trainer")
-        train_settings = None
-        evaluation_settings = None
+        train_cfg = TrainConfig(**config["train"])
+        evaluation_cfg = EvaluationConfig(**config["evaluation"])
 
-        if "train" in config:
-            precision_payload = config["train"].get("precision", {}) or {}
-            train_settings = TrainSettings(
-                output_dir=config["train"]["output_dir"],
-                num_epochs=config["train"].get("num_epochs", config["train"].get("num_train_epochs", 1.0)),
-                per_device_batch_size=config["train"].get("per_device_batch_size", config["train"].get("per_device_train_batch_size", 8)),
-                gradient_accumulation_steps=config["train"].get("gradient_accumulation_steps", 1),
-                warmup_ratio=config["train"].get("warmup_ratio", 0.0),
-                learning_rate=config["train"].get("learning_rate", 5e-5),
-                weight_decay=config["train"].get("weight_decay", 0.0),
-                max_steps=config["train"].get("max_steps"),
-                logging_steps=config["train"].get("logging_steps", 50),
-                precision=PrecisionConfig(
-                    fp16=precision_payload.get("fp16", False),
-                    bf16=precision_payload.get("bf16", False),
-                ),
-                dataloader_num_workers=config["train"].get("dataloader_num_workers", 0),
-            )
-
-        if "evaluation" in config:
-            evaluation_settings = EvaluationSettings(
-                per_device_batch_size=config["evaluation"].get("per_device_batch_size", config["evaluation"].get("per_device_eval_batch_size", 8)),
-                strategy=config["evaluation"].get("strategy", "steps"),
-                steps=config["evaluation"].get("steps"),
-                save_strategy=config["evaluation"].get("save_strategy", "steps"),
-                save_steps=config["evaluation"].get("save_steps"),
-                load_best_model_at_end=config["evaluation"].get("load_best_model_at_end", True),
-                metric_for_best_model=config["evaluation"].get("metric_for_best_model", "accuracy"),
-                greater_is_better=config["evaluation"].get("greater_is_better", True),
-                do_train=config["evaluation"].get("do_train", True),
-                do_eval=config["evaluation"].get("do_eval", True),
-            )
-
-        if trainer_payload is None and train_settings is not None and evaluation_settings is not None:
-            trainer_payload = {
-                "output_dir": train_settings.output_dir,
-                "num_train_epochs": train_settings.num_epochs,
-                "per_device_train_batch_size": train_settings.per_device_batch_size,
-                "per_device_eval_batch_size": evaluation_settings.per_device_batch_size,
-                "gradient_accumulation_steps": train_settings.gradient_accumulation_steps,
-                "warmup_ratio": train_settings.warmup_ratio,
-                "learning_rate": train_settings.learning_rate,
-                "weight_decay": train_settings.weight_decay,
-                "eval_strategy": evaluation_settings.strategy,
-                "eval_steps": evaluation_settings.steps,
-                "save_strategy": evaluation_settings.save_strategy,
-                "save_steps": evaluation_settings.save_steps,
-                "logging_steps": train_settings.logging_steps,
-                "max_steps": train_settings.max_steps,
-                "fp16": train_settings.precision.fp16,
-                "bf16": train_settings.precision.bf16,
-                "report_to": config.get("report_to", ["none"]),
-                "extra": {
-                    "do_train": evaluation_settings.do_train,
-                    "do_eval": evaluation_settings.do_eval,
-                    "load_best_model_at_end": evaluation_settings.load_best_model_at_end,
-                    "metric_for_best_model": evaluation_settings.metric_for_best_model,
-                    "greater_is_better": evaluation_settings.greater_is_better,
-                    "dataloader_num_workers": train_settings.dataloader_num_workers,
-                },
-            }
-
-        if trainer_payload is None:
-            raise KeyError("Trainer configuration missing; provide either 'trainer' or both 'train' and 'evaluation' sections.")
-
-        trainer_payload = trainer_payload.copy()
-        extra = trainer_payload.pop("extra", {})
-        if train_settings is not None:
-            extra.setdefault("dataloader_num_workers", train_settings.dataloader_num_workers)
-        trainer = TrainerConfig(extra=extra, **trainer_payload)
         runtime = RuntimeConfig(**config.get("runtime", {}))
         wandb_cfg = WandbConfig(**config.get("wandb", {})) if "wandb" in config else WandbConfig()
         accelerate_cfg = (
             AccelerateConfig(**config.get("accelerate", {})) if "accelerate" in config else AccelerateConfig()
         )
         ddp_cfg = DDPConfig(**config.get("ddp", {})) if "ddp" in config else DDPConfig()
-        # Populate missing train/evaluation sections from trainer if needed
-        if train_settings is None:
-            train_settings = TrainSettings(
-                output_dir=trainer.output_dir,
-                num_epochs=trainer.num_train_epochs,
-                per_device_batch_size=trainer.per_device_train_batch_size,
-                gradient_accumulation_steps=trainer.gradient_accumulation_steps,
-                warmup_ratio=trainer.warmup_ratio,
-                learning_rate=trainer.learning_rate,
-                weight_decay=trainer.weight_decay,
-                max_steps=trainer.max_steps,
-                logging_steps=trainer.logging_steps,
-                precision=PrecisionConfig(fp16=trainer.fp16, bf16=trainer.bf16),
-                dataloader_num_workers=int(trainer.extra.get("dataloader_num_workers", 0)),
-            )
 
-        if evaluation_settings is None:
-            evaluation_settings = EvaluationSettings(
-                per_device_batch_size=trainer.per_device_eval_batch_size,
-                strategy=trainer.eval_strategy,
-                steps=trainer.eval_steps,
-                save_strategy=trainer.save_strategy,
-                save_steps=trainer.save_steps,
-                load_best_model_at_end=extra.get("load_best_model_at_end", True),
-                metric_for_best_model=extra.get("metric_for_best_model", "accuracy"),
-                greater_is_better=extra.get("greater_is_better", True),
-                do_train=extra.get("do_train", True),
-                do_eval=extra.get("do_eval", True),
-            )
+        experiment_name = f"{model.name_or_path.replace('/', '-')}_{dataset.name}_{dataset.subset or 'none'}_{adapter.method}"
+        if train_cfg.run_name is not None:
+            train_cfg.run_name += f"_{experiment_name}"
+        
+        train_cfg.output_dir = Path(train_cfg.output_dir, experiment_name)
+        
+        if timestamp:
+            train_cfg.output_dir = train_cfg.output_dir / timestamp
+
+        if wandb_cfg.enabled:
+            if wandb_cfg.name is not None and wandb_cfg.name != "" and wandb_cfg.name != "None":
+                print(f"Original wandb run name: {wandb_cfg.name}")
+                wandb_cfg.name = experiment_name + f"_{wandb_cfg.name}"
+                print(f"Updated wandb run name: {wandb_cfg.name}")
+            else:
+                wandb_cfg.name = experiment_name
+
+            wandb_cfg.tags = list(wandb_cfg.tags) + [model.name_or_path.replace("/", "-"), adapter.method, dataset.name, dataset.subset or "none"]
+
+        print(f"Outputs will be saved to {train_cfg.output_dir}, wandb run name: {wandb_cfg.name}, tags: {wandb_cfg.tags}")
 
         return TrainingConfig(
             model=model,
             dataset=dataset,
             adapter=adapter,
-            trainer=trainer,
+            train=train_cfg,
+            evaluation=evaluation_cfg,
             runtime=runtime,
             wandb=wandb_cfg,
             accelerate=accelerate_cfg,
             ddp=ddp_cfg,
-            train=train_settings,
-            evaluation=evaluation_settings,
         )
