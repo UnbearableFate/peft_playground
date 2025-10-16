@@ -197,6 +197,7 @@ def _build_adapter_config(cfg: TrainingConfig) -> AdapterConfig:
         strategy=strategy,
         train_bias=cfg.adapter.train_bias,
         name=cfg.adapter.method,
+        svd_save_path=cfg.adapter.svd_save_path,
         extra=dict(cfg.adapter.extra),
     )
 
@@ -258,6 +259,7 @@ def build_training_state(cfg: TrainingConfig, *, init_wandb: bool = True) -> Tra
     if method not in METHOD_FACTORY:
         raise ValueError(f"Unsupported adapter method: {cfg.adapter.method}")
     factory = METHOD_FACTORY[method]
+    print(f"adapter config: {adapter_config}")
     attach_adapters(model, factory, adapter_config)
 
     train_dataset, eval_dataset = _prepare_datasets(cfg, raw_dataset, tokenizer, label_list)

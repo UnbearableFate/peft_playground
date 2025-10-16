@@ -29,6 +29,7 @@ class AdapterConfig:
     strategy: SubspaceStrategy = SubspaceStrategy.EXTENSION
     train_bias: bool = False
     name: str | None = None
+    svd_save_path: str | None = None
     extra: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -67,6 +68,7 @@ class AdapterModule(nn.Module):
             self.bias.requires_grad = True
         self.config = config
         self.dropout_layer = nn.Dropout(config.dropout) if config.dropout > 0 else None
+        self.layer_name = None
 
     @property
     def scaling(self) -> float:
@@ -143,7 +145,7 @@ def attach_adapters(
 
     wrapped_modules: List[Tuple[str, LinearWithAdapter]] = []
     for name, module in iter_named_linear_modules(model, adapter_config.target_modules):
-        adapter = adapter_factory(module, adapter_config)
+        adapter = adapter_factory(module, adapter_config, layer_name=name)
         wrapper = LinearWithAdapter(module, adapter)
         replace_module(model, name, wrapper)
         wrapped_modules.append((name, wrapper))

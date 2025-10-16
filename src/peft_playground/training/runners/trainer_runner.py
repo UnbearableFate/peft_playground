@@ -3,6 +3,12 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+import numpy as np
+import torch
+from transformers import Trainer, TrainingArguments
+
+from peft_playground.training.monitors import TrainingMonitorCallback
+
 from ...config import TrainingConfig
 from ..preparation import build_training_state
 
@@ -72,7 +78,7 @@ def prepare_training_components(cfg: TrainingConfig):
         "logging_steps": train_cfg.logging_steps,
         "max_steps": train_cfg.max_steps,
         "lr_scheduler_type": train_cfg.lr_scheduler_type,
-        "evaluation_strategy": eval_cfg.strategy,
+        "eval_strategy": eval_cfg.strategy,
         "eval_steps": eval_cfg.steps,
         "save_strategy": eval_cfg.save_strategy,
         "save_steps": eval_cfg.save_steps,

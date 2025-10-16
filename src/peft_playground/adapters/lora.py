@@ -118,12 +118,12 @@ class MAMAdapter(AdapterModule):
         residual = self.up(self.gelu(self.down(x))) * self.scaling
         return residual
 
-def lora_factory(linear: nn.Linear, config: AdapterConfig) -> AdapterModule:
+def lora_factory(linear: nn.Linear, config: AdapterConfig, layer_name: str=None) -> AdapterModule:
     return LoRAAdapter(linear, config)
 
 
-def flora_factory(linear: nn.Linear, config: AdapterConfig) -> AdapterModule:
+def flora_factory(linear: nn.Linear, config: AdapterConfig, layer_name: str=None) -> AdapterModule:
     return FLoRAAdapter(linear, config)
 
-def mam_factory(linear: nn.Linear, config: AdapterConfig) -> AdapterModule:
+def mam_factory(linear: nn.Linear, config: AdapterConfig, layer_name: str=None) -> AdapterModule:
     return MAMAdapter(linear, config)

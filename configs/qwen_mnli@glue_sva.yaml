@@ -1,0 +1,64 @@
+model:
+  name_or_path: Qwen/Qwen3-1.7B
+  trust_remote_code: true
+  torch_dtype: bfloat16
+  tokenizer_name: Qwen/Qwen3-1.7B
+dataset:
+  name: glue
+  subset: cola
+  train_split: train
+  eval_split: validation
+  text_fields:
+  - sentence
+  label_field: label
+  max_length: 128
+adapter:
+  method: sva
+  target_modules: []
+  rank: 8
+  alpha: 8.0
+  dropout: 0.05
+  init_scale: 1.0
+  train_bias: false
+  svd_save_path: svd_components/Qwen3-1.7B  # Path to save SVD components
+  extra:
+    mode: multiplicative
+    init_std: 0.005
+runtime:
+  seed: 11
+  gradient_checkpointing: true
+  torch_compile: false
+wandb:
+  enabled: true
+  project: peft-playground
+ddp:
+  enabled: true
+  backend: nccl
+  gradient_accumulation_steps: 1
+  find_unused_parameters: false
+  broadcast_buffers: true
+  static_graph: false
+train:
+  output_dir: outputs
+  num_epochs: 3
+  per_device_batch_size: 128
+  gradient_accumulation_steps: 1
+  warmup_ratio: 0.05
+  learning_rate: 0.00012
+  weight_decay: 0.01
+  max_steps: null
+  precision:
+    fp16: false
+    bf16: true
+  logging_steps: 5
+evaluation:
+  per_device_batch_size: 128
+  strategy: steps
+  steps: 5
+  save_strategy: steps
+  save_steps: 10
+  load_best_model_at_end: true
+  metric_for_best_model: matthews_correlation
+  greater_is_better: true
+  do_train: true
+  do_eval: true

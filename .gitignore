@@ -13,3 +13,4 @@ outputs/
 wandb/
 *.txt
 *.log
+svd_components/

@@ -44,6 +44,7 @@ class AdapterSettings:
     dropout: float = 0.0  # Optional dropout on adapter inputs
     init_scale: float = 1.0  # Post-init multiplicative factor for adapter weights
     train_bias: bool = False  # Enable training of the wrapped linear biases
+    svd_save_path: Optional[str] = None  # Path to save SVD components
     extra: Dict[str, Any] = field(default_factory=dict)  # Free-form payload consumed by specific adapters
 
 

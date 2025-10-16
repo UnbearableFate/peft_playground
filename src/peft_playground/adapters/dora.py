@@ -83,5 +83,5 @@ class DoRAAdapter(AdapterModule):
         return direction_term + magnitude_term + cross_term
 
 
-def dora_factory(linear: nn.Linear, config: AdapterConfig) -> AdapterModule:
+def dora_factory(linear: nn.Linear, config: AdapterConfig, layer_name: str=None) -> AdapterModule:
     return DoRAAdapter(linear, config)
